@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DuploJS - Roles Split</title>
+  <style>
+    :root {
+      --duplo-yellow: #ffd73f;
+      --duplo-gold: #ebc32b;
+      --ink: #152033;
+      --blue: #0a66c2;
+      --black: #111111;
+      --green: #19a45b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      background: #e9eff6;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .canvas {
+      position: relative;
+      width: 1080px;
+      height: 1080px;
+      overflow: hidden;
+      background: #f5f8fc;
+      isolation: isolate;
+    }
+
+    .triangle {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .triangle img {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: saturate(1.08) contrast(1.05);
+    }
+
+    .communication {
+      clip-path: polygon(0 0, 100% 0, 100% 100%);
+      background: #dfefff;
+    }
+
+    .communication img {
+      transform: scale(1.12);
+      object-position: 48% 40%;
+    }
+
+    .developer {
+      clip-path: polygon(0 0, 0 100%, 100% 100%);
+      background: #fff5d6;
+    }
+
+    .developer img {
+      transform: scale(1.24);
+      object-position: 35% 58%;
+    }
+
+    .triangle::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .communication::after {
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.22), transparent 46%),
+        linear-gradient(315deg, rgba(10, 102, 194, 0.18), rgba(21, 32, 51, 0.2));
+    }
+
+    .developer::after {
+      background:
+        linear-gradient(135deg, rgba(21, 32, 51, 0.22), transparent 40%),
+        linear-gradient(315deg, rgba(255, 215, 63, 0.22), rgba(255, 255, 255, 0.1));
+    }
+
+    .separator-shadow,
+    .separator {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) rotate(45deg);
+      transform-origin: center;
+      pointer-events: none;
+    }
+
+    .separator-shadow {
+      z-index: 4;
+      width: 1660px;
+      height: 170px;
+      background: rgba(8, 17, 34, 0.3);
+      filter: blur(16px);
+    }
+
+    .separator {
+      z-index: 5;
+      width: 1660px;
+      height: 116px;
+      background:
+        linear-gradient(90deg, #101827 0 12%, #24324a 12% 23%, var(--duplo-yellow) 23% 76%, var(--duplo-gold) 76% 100%);
+      border-top: 8px solid rgba(255, 255, 255, 0.92);
+      border-bottom: 8px solid rgba(21, 32, 51, 0.18);
+      box-shadow: 0 28px 58px rgba(21, 32, 51, 0.24);
+    }
+
+    .logo-badge {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: 9;
+      width: 190px;
+      height: 190px;
+      display: grid;
+      place-items: center;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow:
+        0 28px 60px rgba(8, 17, 34, 0.34),
+        0 8px 0 rgba(8, 17, 34, 0.1);
+    }
+
+    .logo-badge::before {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      z-index: 0;
+      border-radius: inherit;
+      background: var(--duplo-yellow);
+    }
+
+    .logo-badge::after {
+      content: "";
+      position: absolute;
+      inset: 23px;
+      z-index: 1;
+      border-radius: inherit;
+      background: linear-gradient(145deg, #ffffff, #f7faff);
+      box-shadow: inset 0 0 18px rgba(21, 32, 51, 0.08);
+    }
+
+    .logo-badge img {
+      position: relative;
+      z-index: 2;
+      width: 112px;
+      height: 112px;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 10px rgba(21, 32, 51, 0.22));
+    }
+
+    .info {
+      position: absolute;
+      z-index: 7;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 20px 44px rgba(8, 17, 34, 0.24);
+      backdrop-filter: blur(10px);
+      color: var(--ink);
+    }
+
+    .dev-info {
+      left: 70px;
+      bottom: 96px;
+      width: 388px;
+      padding: 24px 28px;
+      transform: rotate(-4deg);
+      font: 800 30px/1.18 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .dev-info span {
+      display: block;
+      color: var(--green);
+    }
+
+    .role-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: max-content;
+      margin-bottom: 14px;
+      color: #536177;
+      font: 900 17px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .role-label::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--duplo-yellow);
+      box-shadow: 0 0 0 6px rgba(255, 215, 63, 0.2);
+    }
+
+    .social-info {
+      right: 58px;
+      top: 78px;
+      width: 392px;
+      padding: 24px 26px 26px;
+      transform: rotate(-4deg);
+    }
+
+    .social-info h1 {
+      margin: 0 0 18px;
+      font-size: 34px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .platforms {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .platform {
+      width: 74px;
+      height: 74px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      color: #ffffff;
+      font-weight: 950;
+      box-shadow: inset 0 -8px 0 rgba(0, 0, 0, 0.16);
+    }
+
+    .platform.x {
+      background: var(--black);
+      font-size: 40px;
+    }
+
+    .platform.linkedin {
+      background: var(--blue);
+      font: 900 42px/1 Arial, Helvetica, sans-serif;
+    }
+
+    .caption {
+      margin: 16px 0 0;
+      color: #536177;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .dev-info code {
+      display: block;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .corner-glow {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 9% 92%, rgba(255, 215, 63, 0.38), transparent 23%),
+        radial-gradient(circle at 88% 10%, rgba(10, 102, 194, 0.2), transparent 26%);
+      mix-blend-mode: screen;
+    }
+  </style>
+</head>
+<body>
+  <main class="canvas" aria-label="Visuel carre DuploJS coupe en deux roles">
+    <section class="triangle communication" aria-label="Personne en communication et reseaux sociaux">
+      <img src="./com.jpeg" alt="Professionnels en communication autour d'une presentation">
+    </section>
+
+    <section class="triangle developer" aria-label="Developpeur en train de coder">
+      <img src="./dev.jpg" alt="Developpeur travaillant devant du code">
+    </section>
+
+    <div class="corner-glow" aria-hidden="true"></div>
+
+    <aside class="info social-info" aria-label="Informations reseaux sociaux">
+      <div class="role-label">Communication</div>
+      <h1>Publier et partager</h1>
+      <div class="platforms" aria-label="Twitter et LinkedIn">
+        <div class="platform x" title="Twitter / X">X</div>
+        <div class="platform linkedin" title="LinkedIn">in</div>
+      </div>
+      <p class="caption">Twitter + LinkedIn</p>
+    </aside>
+
+    <aside class="info dev-info" aria-label="Informations developpeur">
+      <div class="role-label">Developer</div>
+      <code>npm i @duplojs</code>
+    </aside>
+
+    <div class="separator-shadow" aria-hidden="true"></div>
+    <div class="separator" aria-hidden="true"></div>
+
+    <div class="logo-badge" aria-label="Logo DuploJS">
+      <img src="./duplojs-logo.svg" alt="DuploJS">
+    </div>
+  </main>
+</body>
+</html>
