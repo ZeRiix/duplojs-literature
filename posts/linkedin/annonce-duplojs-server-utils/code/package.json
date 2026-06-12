@@ -1,0 +1,7 @@
+{
+    "type": "module",
+    "dependencies": {
+        "@duplojs/utils": "1.9.6",
+        "@duplojs/server-utils": "0.4.1"
+    }
+}
