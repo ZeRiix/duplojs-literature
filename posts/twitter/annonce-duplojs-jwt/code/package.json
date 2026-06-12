@@ -1,0 +1,7 @@
+{
+    "type": "module",
+    "dependencies": {
+        "@duplojs/utils": "1.9.6",
+        "@duplojs/json-web-token": "0.2.0"
+    }
+}

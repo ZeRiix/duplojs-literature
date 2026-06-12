@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DuploJS Utils Namespaces</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 56px;
+        background:
+          radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.24), transparent 32%),
+          radial-gradient(circle at 82% 16%, rgba(168, 85, 247, 0.22), transparent 30%),
+          linear-gradient(135deg, #07111f 0%, #0f172a 44%, #111827 100%);
+        color: #f8fafc;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: min(100%, 980px);
+        padding: 36px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 28px;
+        background: rgba(15, 23, 42, 0.74);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.36);
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: #38bdf8;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin: 0 0 28px;
+        text-align: center;
+        font-size: 34px;
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+
+      .ts-logo {
+        width: 42px;
+        height: 42px;
+        display: inline-grid;
+        place-items: end;
+        padding: 0 5px 4px 0;
+        border-radius: 8px;
+        background: #3178c6;
+        color: #ffffff;
+        font-size: 17px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: -0.04em;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.2),
+          0 10px 22px rgba(49, 120, 198, 0.34);
+      }
+
+      .namespace-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .namespace-card {
+        min-height: 136px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 22px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.26);
+        border-radius: 20px;
+        text-align: center;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.18),
+          0 18px 34px rgba(0, 0, 0, 0.22);
+      }
+
+      .namespace-card span {
+        font-size: 38px;
+        line-height: 1;
+      }
+
+      .namespace-card p {
+        margin: 0;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 800;
+        line-height: 1.15;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+      }
+
+      .common {
+        background: linear-gradient(135deg, #64748b, #1e293b);
+      }
+
+      .array {
+        background: linear-gradient(135deg, #2563eb, #0891b2);
+      }
+
+      .clean {
+        background: linear-gradient(135deg, #22c55e, #15803d);
+      }
+
+      .data-parser {
+        background: linear-gradient(135deg, #fb923c, #dc2626);
+      }
+
+      .date {
+        background: linear-gradient(135deg, #2dd4bf, #0f766e);
+      }
+
+      .either {
+        background: linear-gradient(135deg, #8b5cf6, #4f46e5);
+      }
+
+      .flow {
+        background: linear-gradient(135deg, #38bdf8, #2563eb);
+      }
+
+      .generator {
+        background: linear-gradient(135deg, #facc15, #ea580c);
+      }
+
+      .string {
+        background: linear-gradient(135deg, #ec4899, #be123c);
+      }
+
+      .number {
+        background: linear-gradient(135deg, #84cc16, #16a34a);
+      }
+
+      .object {
+        background: linear-gradient(135deg, #a855f7, #9333ea);
+      }
+
+      .pattern {
+        background: linear-gradient(135deg, #ef4444, #7c2d12);
+      }
+
+      .caption {
+        margin: 24px 0 0;
+        color: #cbd5e1;
+        text-align: center;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      @media (max-width: 760px) {
+        body {
+          padding: 24px;
+        }
+
+        main {
+          padding: 24px;
+          border-radius: 22px;
+        }
+
+        h1 {
+          font-size: 26px;
+        }
+
+        .ts-logo {
+          width: 34px;
+          height: 34px;
+          border-radius: 7px;
+          font-size: 14px;
+        }
+
+        .namespace-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main aria-labelledby="page-title">
+      <p class="eyebrow">@duplojs/utils</p>
+      <h1 id="page-title">
+        <span>A typed utility toolbox for</span>
+        <span class="ts-logo" aria-label="TypeScript">TS</span>
+      </h1>
+
+      <section class="namespace-grid" aria-label="DuploJS Utils namespaces">
+        <div class="namespace-card common">
+          <span aria-hidden="true">🛠️</span>
+          <p>Common</p>
+        </div>
+
+        <div class="namespace-card array">
+          <span aria-hidden="true">📋</span>
+          <p>Array</p>
+        </div>
+
+        <div class="namespace-card clean">
+          <span aria-hidden="true">🏢</span>
+          <p>Clean</p>
+        </div>
+
+        <div class="namespace-card data-parser">
+          <span aria-hidden="true">📊</span>
+          <p>DataParser</p>
+        </div>
+
+        <div class="namespace-card date">
+          <span aria-hidden="true">🕦</span>
+          <p>Date</p>
+        </div>
+
+        <div class="namespace-card either">
+          <span aria-hidden="true">🔀</span>
+          <p>Either</p>
+        </div>
+
+        <div class="namespace-card flow">
+          <span aria-hidden="true">🌊</span>
+          <p>Flow</p>
+        </div>
+
+        <div class="namespace-card generator">
+          <span aria-hidden="true">⚡</span>
+          <p>Generator</p>
+        </div>
+
+        <div class="namespace-card string">
+          <span aria-hidden="true">🔤</span>
+          <p>String</p>
+        </div>
+
+        <div class="namespace-card number">
+          <span aria-hidden="true">🔢</span>
+          <p>Number</p>
+        </div>
+
+        <div class="namespace-card object">
+          <span aria-hidden="true">📦</span>
+          <p>Object</p>
+        </div>
+
+        <div class="namespace-card pattern">
+          <span aria-hidden="true">🎯</span>
+          <p>Pattern</p>
+        </div>
+      </section>
+
+      <p class="caption">12 namespaces • 500+ functions • Tree-shakeable • Zero dependencies</p>
+    </main>
+  </body>
+</html>
