@@ -82,6 +82,7 @@ export declare function requestPaymentAuthorization(
 	request: PaymentRequest,
 ): Promise<
 	| E.Right<"payment.authorized", PaymentAuthorization>
-	| E.Left<"payment.refused", { reason: "cardExpired" | "insufficientFunds" }>
+	| E.Left<"payment.cardExpired", PaymentRequest>
+	| E.Left<"payment.insufficientFunds", PaymentRequest>
 	| E.Left<"payment.providerUnavailable", { provider: "stripe" }>
 >;

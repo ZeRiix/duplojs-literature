@@ -577,7 +577,8 @@ declare function requestPaymentAuthorization(
 	request: PaymentRequest,
 ): Promise<
 	| E.Right<"payment.authorized", PaymentAuthorization>
-	| E.Left<"payment.refused", { reason: "cardExpired" | "insufficientFunds" }>
+	| E.Left<"payment.cardExpired", PaymentRequest>
+	| E.Left<"payment.insufficientFunds", PaymentRequest>
 	| E.Left<"payment.providerUnavailable", { provider: "stripe" }>
 >;
 ```
@@ -587,12 +588,17 @@ On ne dit pas seulement : "le paiement peut échouer".
 On modélise les issues importantes :
 
 - `payment.authorized` : le paiement est autorisé ;
-- `payment.refused` : le fournisseur a répondu, mais le paiement est refusé ;
+- `payment.cardExpired` : la carte est expirée ;
+- `payment.insufficientFunds` : les fonds sont insuffisants ;
 - `payment.providerUnavailable` : le fournisseur n’est pas disponible.
 
 Ce ne sont pas les mêmes situations.
 
-Le refus de paiement est une issue métier attendue.
+Une carte expirée et des fonds insuffisants sont deux issues métier attendues.
+
+On ne met pas un champ `reason` dans une erreur générique pour ensuite refaire un matching à la main.
+
+L’information porte déjà le cas.
 
 L’indisponibilité du fournisseur est une issue technique récupérable.
 
