@@ -17,7 +17,10 @@ export default [
 			parserOptions: {
 				...duplojsEslintOpen.languageOptions.parserOptions,
 				tsconfigRootDir,
-				project: "./tsconfig.json",
+				project: [
+					"./articles/**/code/tsconfig.json",
+					"./posts/**/code/tsconfig.json",
+				],
 			},
 		},
 		rules: {
