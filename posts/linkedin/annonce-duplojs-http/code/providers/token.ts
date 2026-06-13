@@ -9,6 +9,6 @@ export const tokenProvider = createTokenHandler({
 	audience: ["web"],
 	customPayloadShape: {
 		userId: DPE.number(),
-        userEmail: DPE.email(),
+		userEmail: DPE.email(),
 	},
 });

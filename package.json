@@ -1,0 +1,16 @@
+{
+  "type": "module",
+  "scripts": {
+    "test:lint": "eslint .",
+    "test:lint:fix": "eslint . --fix",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.0.2",
+    "@commitlint/config-conventional": "21.0.2",
+    "@duplojs/eslint": "0.5.0",
+    "eslint": "9.33.0",
+    "husky": "9.1.7",
+    "typescript": "5.9.2"
+  }
+}

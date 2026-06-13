@@ -12,13 +12,13 @@ export const authenticationProcess = useProcessBuilder()
 	.cut(
 		ResponseContract.unauthorized("token.invalid"),
 		async({ authorization }, { response, output }) => asyncPipe(
-            authorization,
-            tokenProvider.verify,
-            E.whenIsLeftElse(
-                () => response("token.invalid"),
-                ({ payload }) => output({ authenticatedUserId: payload.userId })
-            ),
-        ),
+			authorization,
+			tokenProvider.verify,
+			E.whenIsLeftElse(
+				() => response("token.invalid"),
+				({ payload }) => output({ authenticatedUserId: payload.userId }),
+			),
+		),
 	)
 	.check(
 		userExist,

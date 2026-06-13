@@ -7,13 +7,13 @@ import { envs } from "./env";
 import "./routes";
 
 const hub = createHub({ environment: "DEV" })
-    .register(routeStore.getAll())
-    .plug(
-        codeGeneratorPlugin({ outputFile: "types.d.ts" }),
-    )
-    .plug(
-        openApiGeneratorPlugin({ routePath: "/swagger-ui" })
-    );
+	.register(routeStore.getAll())
+	.plug(
+		codeGeneratorPlugin({ outputFile: "types.d.ts" }),
+	)
+	.plug(
+		openApiGeneratorPlugin({ routePath: "/swagger-ui" }),
+	);
 
 await createHttpServer(
 	hub,
@@ -22,6 +22,6 @@ await createHttpServer(
 		port: envs.PORT,
 	},
 )
-    .then(
+	.then(
 		() => void console.log(`${envs.APP_NAME} is running !`),
 	);
