@@ -70,7 +70,7 @@ La couche de transport décide depuis une string.
 Le front dépend indirectement du texte d’une erreur.
 La traduction devient difficile.
 La journalisation devient floue.
-Et si demain on doit distinguer `register.emailInvalid` de `register.alreadyExists`, il faut parser ou typer quelque chose qui n’a jamais été conçu pour ça.
+Et si demain on doit distinguer un email invalide d’un compte déjà existant, il faut parser ou typer quelque chose qui n’a jamais été conçu pour ça.
 
 ## Une erreur métier n’est pas un message
 
@@ -92,11 +92,23 @@ Le domaine, lui, devrait seulement dire ce qui s’est passé.
 
 Pas comment l’afficher.
 
-`"Cette adresse email est déjà utilisée."` est un message.
+`"Cette adresse email est déjà utilisée."` est un message utilisateur.
 
-`"register.alreadyExists"` est un cas métier.
+Mais la situation "un compte existe déjà pour cette adresse" est autre chose.
 
-Ce n’est pas la même responsabilité.
+C’est une situation métier.
+
+Elle peut être consommée de plusieurs façons.
+
+On peut afficher un message.
+
+On peut proposer une connexion.
+
+On peut lancer un parcours de récupération.
+
+On peut ne rien afficher du tout et continuer autrement.
+
+Ce n’est pas la même responsabilité que le message final.
 
 Quand on met le message directement dans l’erreur, on verrouille trop tôt une décision qui devrait être prise plus tard, à la frontière du système.
 
