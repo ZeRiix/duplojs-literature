@@ -65,52 +65,88 @@ try {
 
 À partir de là, tout commence à se mélanger.
 
-Le domaine parle en message utilisateur.
-La couche de transport décide depuis une string.
-Le front dépend indirectement du texte d’une erreur.
-La traduction devient difficile.
-La journalisation devient floue.
-Et si demain on doit distinguer un email invalide d’un compte déjà existant, il faut parser ou typer quelque chose qui n’a jamais été conçu pour ça.
+Le premier problème n’est même pas encore de savoir comment afficher l’erreur.
 
-## Une erreur métier n’est pas un message
+Le premier problème, c’est de savoir qu’elle existe.
 
-C’est probablement le point le plus important.
+## Le premier problème : identifier les issues
 
-Une erreur métier ne devrait pas être un message affichable.
+Avec `throw`, une issue disparaît du contrat de la fonction.
 
-Un message, c’est de la présentation.
+Quand tu lis ça :
 
-Il dépend :
+```ts
+const user = await registerUser(email);
+```
 
-- de la langue ;
-- du produit ;
-- du canal de sortie ;
-- du niveau de détail autorisé ;
-- parfois même du type d’utilisateur.
+tu ne sais pas ce que `registerUser` peut produire.
 
-Le domaine, lui, devrait seulement dire ce qui s’est passé.
+Tu sais seulement ce que la fonction retourne quand tout se passe bien.
 
-Pas comment l’afficher.
+Pour découvrir le reste, tu dois lire l’implémentation.
 
-`"Cette adresse email est déjà utilisée."` est un message utilisateur.
+Tu dois chercher les `throw`.
 
-Mais la situation "un compte existe déjà pour cette adresse" est autre chose.
+Tu dois remonter les fonctions appelées.
 
-C’est une situation métier.
+Tu dois espérer qu’une dépendance plus bas ne lève pas autre chose.
 
-Elle peut être consommée de plusieurs façons.
+C’est déjà une perte de contrôle.
 
-On peut afficher un message.
+Beaucoup d’équipes essaient de compenser avec une erreur générique.
 
-On peut proposer une connexion.
+```ts
+class AppError extends Error {
+	constructor(
+		public code: string,
+		public status: number,
+		public payload?: unknown,
+	) {
+		super(code);
+	}
+}
+```
 
-On peut lancer un parcours de récupération.
+Puis elles l’utilisent partout :
 
-On peut ne rien afficher du tout et continuer autrement.
+```ts
+throw new AppError(
+	"EMAIL_ALREADY_USED",
+	409,
+	{ email },
+);
+```
 
-Ce n’est pas la même responsabilité que le message final.
+Et à la frontière :
 
-Quand on met le message directement dans l’erreur, on verrouille trop tôt une décision qui devrait être prise plus tard, à la frontière du système.
+```ts
+try {
+	const user = await registerUser(email);
+	return renderSuccess(user);
+} catch (error) {
+	return interpretAppError(error);
+}
+```
+
+Sur le papier, ça donne une impression de contrôle.
+
+En réalité, on a surtout centralisé l’ignorance.
+
+La fonction `registerUser` ne dit toujours pas ce qu’elle peut produire.
+
+Le code appelant n’est toujours pas forcé de gérer les cas possibles.
+
+Le `catch` final devient un interpréteur générique de problèmes qu’il ne comprend pas vraiment.
+
+Et chaque nouvelle erreur ajoutée quelque part dans le système peut devenir un nouveau comportement à la frontière, sans que le chemin entre les deux soit clair.
+
+Le problème n’est donc pas seulement que l’erreur est mal affichée.
+
+Le problème, c’est qu’elle n’est pas identifiable dans le flux.
+
+Avant de parler de message, de statut, de popup ou de traduction, il faut d’abord répondre à une question plus simple :
+
+quels sont les points de sortie possibles de cette fonction ?
 
 ## Le bon premier pas : succès ou échec explicite
 
