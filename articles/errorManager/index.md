@@ -277,11 +277,36 @@ Certaines représentent un refus métier.
 
 Mais toutes ne sont pas des erreurs au sens technique.
 
-Si elles deviennent simplement deux erreurs génériques, le type dit seulement : "ça peut échouer".
+Par exemple, on peut avoir un résultat qui ressemble à ça :
 
-Il ne dit pas : "ça peut échouer de ces manières précises".
+```ts
+type RegisterResult =
+	| Success<User>
+	| Error<
+		| { input: string }
+		| { userId: string; email: string }
+	>;
+```
 
-Et c’est là que le modèle `success/error` classique commence à manquer de précision.
+C’est déjà mieux qu’un `throw`.
+
+L’échec apparaît dans le type.
+
+Mais il manque encore l’essentiel : le type ne dit pas ce que ces données signifient.
+
+Est-ce que `{ input: string }` représente un email invalide, une valeur vide, un format refusé ?
+
+Est-ce que `{ userId, email }` veut dire que le compte existe déjà, qu’il est suspendu, ou qu’une invitation est en attente ?
+
+La payload décrit une forme.
+
+Elle ne nomme pas l’issue.
+
+Le code appelant est donc obligé de déduire l’intention à partir du contenu retourné.
+
+Et dès que deux issues transportent la même forme de donnée, l’ambiguïté revient.
+
+C’est là que le modèle `success/error` classique commence à manquer de précision.
 
 Il structure le succès et l’échec.
 
