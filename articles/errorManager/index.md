@@ -85,11 +85,7 @@ Tu sais seulement ce que la fonction retourne quand tout se passe bien.
 
 Pour découvrir le reste, tu dois lire l’implémentation.
 
-Tu dois chercher les `throw`.
-
-Tu dois remonter les fonctions appelées.
-
-Tu dois espérer qu’une dépendance plus bas ne lève pas autre chose.
+Tu dois chercher les `throw`, remonter les fonctions appelées, et espérer qu’une dépendance plus bas ne lève pas autre chose.
 
 C’est déjà une perte de contrôle.
 
@@ -150,9 +146,9 @@ quels sont les points de sortie possibles de cette fonction ?
 
 ## Le bon premier pas : succès ou échec explicite
 
-Avant même de parler de cas métier précis, on peut déjà faire beaucoup mieux que `throw`, `null` ou `{ ok: false }`.
+Avant même de parler de cas métier précis, on peut déjà rendre le retour plus honnête.
 
-On peut retourner un résultat explicite :
+Au lieu de laisser une fonction donner l’impression qu’elle ne produit qu’une seule chose, on peut retourner un résultat explicite :
 
 - soit une réussite ;
 - soit un échec.
@@ -181,15 +177,11 @@ function error<Failure>(failure: Failure): Result<never, Failure> {
 }
 ```
 
-Déjà, on gagne quelque chose.
-
-L’échec n’est plus caché dans une exception.
-
-Il n’est plus déguisé en `null`.
-
-Il fait partie du retour de la fonction.
+Déjà, le contrat devient plus lisible.
 
 La fonction assume qu’elle peut produire autre chose que son résultat nominal.
+
+Le code appelant ne peut plus ignorer complètement cette possibilité.
 
 Par exemple :
 
@@ -209,7 +201,7 @@ Le résultat attendu est binaire : autorisé ou refusé.
 
 Pas besoin d’inventer un système plus complexe quand le métier ne demande pas plus.
 
-Le problème arrive quand on utilise ce modèle générique pour des cas qui ne sont plus génériques.
+Le problème arrive quand le processus n’a plus seulement deux sorties intéressantes.
 
 ```ts
 function registerUser(email: string) {
@@ -225,74 +217,38 @@ function registerUser(email: string) {
 }
 ```
 
-C’est mieux qu’un `throw`, mais ce n’est pas encore satisfaisant.
+Ici, le retour est explicite, mais le modèle reste pauvre.
 
-Déjà parce qu’ici, les deux erreurs n’ont pas la même signification.
+Il dit seulement :
 
-L’une est une donnée invalide.
-L’autre est un conflit métier.
+- il y a un cas de réussite ;
+- il y a un cas d’erreur.
 
-Mais il y a un autre problème, plus profond : est-ce que ce sont vraiment des erreurs ?
+Or, dans le code, on voit déjà plusieurs situations différentes.
 
-La question n’est pas rhétorique.
+Une entrée peut être invalide.
 
-Pour un développeur, on a souvent tendance à raisonner comme ça :
+Un compte peut déjà exister.
 
-- ça marche : succès ;
-- ça ne marche pas : erreur.
+Un utilisateur peut être créé.
 
-Mais le métier ne fonctionne pas toujours comme ça.
+Ces situations ne demandent pas forcément le même traitement.
 
-Un utilisateur déjà existant, selon le contexte, ce n’est pas forcément une erreur.
+Le canal `error` devient alors un grand sac dans lequel on met tout ce qui ne ressemble pas au résultat nominal.
 
-Ça peut être un point de sortie valide du processus.
-
-Par exemple :
-
-- afficher "vous avez déjà un compte" ;
-- proposer une connexion ;
-- envoyer un email de récupération ;
-- refuser l’inscription avec un code public ;
-- continuer le parcours différemment.
-
-Même événement.
-
-Plusieurs interprétations possibles.
-
-Et c’est le métier qui décide.
-
-Le problème, c’est que quand on force tout dans `success/error`, on impose déjà une lecture technique du monde.
-
-On dit : "ce qui n’est pas le chemin nominal est une erreur".
-
-Alors qu’en réalité, une fonction métier peut simplement avoir plusieurs issues valides.
-
-Certaines produisent une donnée.
-
-Certaines arrêtent le processus.
-
-Certaines demandent une action utilisateur.
-
-Certaines représentent un refus métier.
-
-Mais toutes ne sont pas des erreurs au sens technique.
-
-Par exemple, on peut avoir un résultat qui ressemble à ça :
+Même si on remplace les messages par des payloads typées, le problème ne disparaît pas vraiment.
 
 ```ts
-type RegisterResult =
-	| Success<User>
-	| Error<
-		| { input: string }
-		| { userId: string; email: string }
-	>;
+type RegisterResult = Result<
+	User,
+	| { input: string }
+	| { userId: string; email: string }
+>;
 ```
 
-C’est déjà mieux qu’un `throw`.
+À ce stade, l’échec apparaît bien dans le type.
 
-L’échec apparaît dans le type.
-
-Mais il manque encore l’essentiel : le type ne dit pas ce que ces données signifient.
+Mais le type ne dit pas encore ce que ces données signifient.
 
 Est-ce que `{ input: string }` représente un email invalide, une valeur vide, un format refusé ?
 
@@ -302,9 +258,27 @@ La payload décrit une forme.
 
 Elle ne nomme pas l’issue.
 
-Le code appelant est donc obligé de déduire l’intention à partir du contenu retourné.
+On pourrait évidemment ajouter un discriminant dans la payload.
 
-Et dès que deux issues transportent la même forme de donnée, l’ambiguïté revient.
+Un `type`, un `kind`, un `code`.
+
+Et ce serait déjà une bonne intuition.
+
+Le sujet n’est donc pas de dire qu’un discriminant serait inutile.
+
+Au contraire.
+
+Le sujet, c’est que si cette information devient nécessaire, elle ne devrait pas rester un détail dans une payload d’erreur générique.
+
+Elle devrait structurer le résultat lui-même.
+
+Sans discriminant, le code appelant est obligé de déduire l’intention à partir du contenu retourné.
+
+Avec un discriminant, on améliore déjà les choses.
+
+Mais si ce discriminant reste enfermé dans un canal `error`, on garde encore une lecture binaire du processus.
+
+On continue à dire : il y a le résultat attendu d’un côté, et tout le reste dans l’erreur.
 
 C’est là que le modèle `success/error` classique commence à manquer de précision.
 
@@ -348,9 +322,23 @@ Pas parce qu’elle invente `Either`.
 
 Ce concept existe déjà ailleurs.
 
-La différence importante ici, c’est que `Left` et `Right` portent une information littérale typée.
+Ce qui m’intéresse ici, c’est le concept d’information, que la librairie documente dans sa partie [`Either`](https://utils.duplojs.dev/fr/v1/guide/either).
 
-Même si l’outil garde le vocabulaire classique `Left` / `Right`, l’enjeu n’est pas seulement de dire "succès" ou "erreur".
+Dans cette approche, l’information joue le rôle du discriminant.
+
+Elle ne vit pas comme une convention secondaire dans une payload.
+
+Elle est portée directement par le résultat.
+
+La différence importante ici, c’est que chaque `Left` et chaque `Right` porte ce marqueur littéral typé.
+
+Il faut donc faire attention à ne pas lire `Left` et `Right` comme une vérité métier complète.
+
+`Left` et `Right` organisent le flux.
+
+Mais ce qui nomme réellement le cas, c’est ce marqueur.
+
+L’enjeu n’est donc pas seulement de dire "succès" ou "erreur".
 
 L’enjeu est de nommer précisément le point de sortie.
 
@@ -394,57 +382,21 @@ On a trois issues métier :
 - `register.alreadyExists` : le compte existe déjà ;
 - `register.created` : le compte vient d’être créé.
 
+Dans cet exemple, `register.emailInvalid` coupe le parcours dès la validation de l’entrée.
+
+Les deux autres issues sont placées côté `Right` parce qu’elles représentent des résultats consommables du processus d’inscription.
+
 Et `register.alreadyExists` est volontairement intéressant.
 
 Ce n’est pas forcément une erreur.
 
-Selon le produit, ça peut être une sortie valide : afficher un message, proposer une connexion, envoyer un email de récupération, ou rediriger l’utilisateur.
+C’est une issue que le système peut vouloir traiter comme un cas valide du parcours.
 
 L’information n’est donc pas de la décoration.
 
 Elle est ce qui permet au code appelant de distinguer les issues sans inspecter un message, sans parser une payload, et sans deviner l’intention.
 
 Ce détail change beaucoup de choses.
-
-## Garder le parcours lisible
-
-Le point important n’est pas de découper le code à tout prix.
-
-Une inscription utilisateur est un parcours.
-
-La donnée entre avec un état brut, puis elle avance dans plusieurs décisions :
-
-- nettoyer l’entrée ;
-- valider l’email ;
-- vérifier qu’il n’est pas déjà utilisé ;
-- créer l’utilisateur ;
-- retourner l’issue produite.
-
-Si on découpe ce parcours en petites fonctions indépendantes, il faut faire attention à ne pas perdre ce que chaque étape garantit.
-
-Sinon on obtient juste une succession de fonctions flottantes qui semblent propres, mais qui ne prouvent pas vraiment le chemin suivi par la donnée.
-
-Dans un système plus poussé, on peut aller plus loin avec des types, des contraintes ou des preuves intermédiaires : par exemple une donnée marquée comme "email valide", puis comme "email disponible".
-
-Mais ce sujet mérite un article à part.
-
-Ici, on peut rester simple.
-
-Le parcours peut très bien rester visible dans une seule fonction, comme dans l’exemple précédent.
-
-Ce qui est important ici, ce n’est pas le mot "monade".
-
-Le mot peut même faire peur inutilement.
-
-Ce qui compte, c’est le comportement :
-
-- le flux nominal reste lisible ;
-- les issues restent dans le type ;
-- chaque sortie du parcours est nommée ;
-- le code appelant sait exactement quels cas il doit gérer.
-
-On ne met plus les points de sortie à côté du programme.
-On les met dans le contrat du programme.
 
 ## Traiter l’issue à la frontière finale
 
@@ -458,7 +410,7 @@ Pas le use case.
 
 Pas une classe `Error` partagée partout.
 
-Le consommateur final, c’est l’endroit où l’issue devient une décision concrète.
+Le consommateur final, c’est l’endroit où l’issue prend un sens opérationnel.
 
 Dans une application avec une interface, c’est souvent l’interface.
 
@@ -474,6 +426,8 @@ C’est elle qui sait :
 Le domaine ne doit pas décider ça.
 
 Il doit seulement fournir une issue exploitable.
+
+Peu importe que l’issue vienne d’un `Left` ou d’un `Right`, le consommateur peut se placer au niveau de l’information et décider quoi faire de chaque cas.
 
 ```ts
 function consumeRegisterIssue(input: string) {
@@ -512,53 +466,21 @@ Trois issues.
 
 Trois décisions de consommation.
 
-Et si demain l’interface change de parcours, le domaine ne change pas.
+Et si demain l’interface change de parcours, de langue ou de façon d’afficher l’information, le domaine ne change pas.
 
-Si demain le produit devient multilingue, le domaine ne change pas.
+Le point important n’est donc pas de trouver une couche magique où toutes les issues devraient être transformées.
 
-Si demain on veut afficher une modale au lieu d’une redirection, le domaine ne change pas.
+Une issue se traite là où elle peut devenir une décision concrète.
 
-Pourquoi je ne prends pas HTTP comme exemple principal ici ?
+Dans une interface, cette décision peut être un message, une redirection, une modale ou un champ en erreur.
 
-Parce que HTTP n’est qu’un protocole de transport.
+Dans un traitement en arrière-plan, ce peut être un retry, une mise en attente ou une alerte.
 
-Il ne représente pas automatiquement la frontière finale d’une application.
+Dans une API publique, ce peut être un format de réponse documenté.
 
-Il peut transporter une issue.
+Mais tant qu’on n’est pas à ce niveau de décision, on a intérêt à garder l’issue exploitable.
 
-Il peut catégoriser une réponse.
-
-Mais il ne devrait pas forcément figer le message, le parcours ou l’interprétation finale.
-
-Dans beaucoup d’applications, HTTP n’est qu’un tuyau entre le backend et l’interface.
-
-Dans ce cas, transformer trop tôt une issue métier en message HTTP, c’est se limiter pour la suite.
-
-Il y a une exception : si ton API publique est le produit directement consommé par des clients externes.
-
-Là, l’API devient une frontière contractuelle.
-
-Elle peut définir un format public, des codes publics, des messages documentés.
-
-Mais ce n’est pas vrai par défaut.
-
-Il faut arrêter de confondre protocole de transport et frontière applicative.
-
-Un `403 Forbidden`, par exemple, peut cacher beaucoup de réalités différentes :
-
-- rôle insuffisant ;
-- compte suspendu ;
-- ressource verrouillée ;
-- limite de plan atteinte ;
-- action interdite dans l’état courant du processus.
-
-Même catégorie technique.
-
-Issues métier différentes.
-
-Et c’est précisément pour ça que l’information est utile.
-
-Elle évite de demander au consommateur de réinterpréter un statut trop pauvre.
+Plus on l’interprète tôt, plus on force les consommateurs suivants à réinterpréter une information déjà appauvrie.
 
 ## Et les vraies exceptions ?
 
@@ -577,6 +499,10 @@ Il reste utile pour les erreurs inattendues :
 Autrement dit : des cas qui ne sont pas censés arriver.
 
 Jamais.
+
+La règle simple est la suivante : si un cas est attendu ou récupérable par un consommateur, il mérite d’être modélisé comme une issue.
+
+Si l’application est dans un état où elle ne devrait pas continuer, `throw` reste adapté.
 
 Il y a aussi un cas où `throw` est non seulement acceptable, mais souhaitable : le démarrage de l’application.
 
@@ -603,7 +529,6 @@ export const envs = await environmentVariableOrThrow(
 	},
 	{
 		paths: [".env", ".env.local"],
-		justRead: true,
 	},
 );
 ```
@@ -673,7 +598,11 @@ On ne met pas un champ `reason` dans une erreur générique pour ensuite refaire
 
 L’information porte déjà le cas.
 
-L’indisponibilité du fournisseur est une issue technique récupérable.
+L’indisponibilité du fournisseur est une issue technique, mais elle peut rester récupérable.
+
+L’application peut désactiver temporairement le paiement, proposer de réessayer plus tard, ou afficher un état de maintenance sur ce parcours précis.
+
+Elle n’a pas besoin de casser tout le reste du système pour ça.
 
 Une exception non contrôlée, elle, reste un accident.
 
@@ -681,57 +610,36 @@ L’idée n’est pas de prétendre que plus rien ne peut mal se passer.
 
 L’idée est de convertir ce qui peut être contrôlé en donnée explicite, et de garder les exceptions pour ce qui est réellement exceptionnel.
 
-## Pas besoin de tout expliquer avant
-
-Est-ce qu’il faut forcément parler de DDD, de structure de donnée, d’architecture hexagonale, de Value Objects, de parsing, de DTO, de ports/adapters avant de parler de gestion d’erreur ?
-
-Non.
-
-Il suffit de poser une règle simple :
-
-> une fonction métier doit annoncer les cas métier qu’elle peut produire.
-
-À partir de là, on peut parler de gestion d’erreur sans demander au lecteur de connaître toute l’architecture propre.
-
-Les autres sujets peuvent venir ensuite.
-
-La structure de la donnée expliquera pourquoi les payloads doivent être propres.
-
-L’architecture expliquera pourquoi le mapping de transport ne doit pas vivre dans le domaine.
-
-Les Value Objects expliqueront pourquoi une donnée valide devrait être construite une fois, puis transportée avec son invariant.
-
-Mais pour comprendre cet article, une seule idée suffit :
-
-une issue attendue est un résultat possible.
-
-Donc elle mérite d’être visible dans le type, dans le code, et dans le contrat de la fonction.
-
 ## Conclusion
 
-La mauvaise gestion d’erreur ne vient pas seulement du fait d’utiliser `throw`.
+Un code ne devient pas robuste parce qu’il attrape mieux ses erreurs.
 
-Elle vient surtout du fait de ne pas savoir ce qu’une fonction promet vraiment.
+Il devient robuste quand il arrête de mentir sur ce qu’il peut produire.
 
-Quand l’échec est caché, tout le monde compense :
+Une fonction métier n’a pas toujours un seul chemin intéressant.
 
-- `try/catch` trop larges ;
-- messages parsés à la main ;
-- statuts ou codes de transport décidés trop bas ;
-- `null` propagés ;
-- logs inutilisables ;
-- comportements impossibles à garantir.
+Elle peut créer une donnée.
 
-À l’inverse, quand l’échec devient une donnée typée, le code devient plus honnête.
+Elle peut refuser une entrée.
 
-Une fonction ne dit plus seulement : "je retourne un utilisateur".
+Elle peut rencontrer un état déjà existant.
 
-Elle dit :
+Elle peut dépendre d’un service temporairement indisponible.
 
-- je peux créer un utilisateur ;
-- je peux refuser un email invalide ;
-- je peux refuser un email déjà utilisé.
+Et tous ces cas ne méritent pas forcément d’être cachés derrière le même mot : "erreur".
 
-Et le code appelant est obligé de gérer ces cas.
+Quand une issue est attendue, elle doit être nommée.
 
-C’est ça, pour moi, une bonne gestion d’erreur : pas un `catch` mieux placé, mais un contrat plus honnête.
+Quand elle est nommée, elle peut être typée.
+
+Quand elle est typée, elle peut être traitée au bon endroit.
+
+C’est ça, pour moi, une bonne gestion d’erreur : pas un `catch` plus malin, mais un contrat qui dit enfin la vérité.
+
+---
+
+L’exemple de cet article s’appuie sur [`Either` de `@duplojs/utils`](https://utils.duplojs.dev/fr/v1/guide/either), une brique de l’écosystème [DuploJS](https://duplojs.dev).
+
+DuploJS ne se limite pas à cette approche, mais elle reflète bien une idée centrale du projet : rendre les contrats explicites, typés, et exploitables par le reste du système.
+
+Si le sujet vous intéresse, vous pouvez regarder la documentation de DuploJS et venir échanger autour du projet.
