@@ -2,23 +2,15 @@
 
 Quand on parle de gestion d’erreur, on tombe souvent dans un faux débat.
 
-Il y aurait les gens qui utilisent `throw`, les gens qui retournent `null`, les gens qui retournent `{ ok: false }`, les gens qui créent des classes `Error`, et ceux qui veulent tout transformer en monade.
+`throw`, `null`, `{ ok: false }`, `Result`, `Either`, classe `Error`...
 
-Mais le vrai problème n’est pas là.
+On compare des outils avant même d’avoir posé le vrai problème.
 
-Le vrai problème, c’est que beaucoup de fonctions ne disent pas clairement ce qu’elles peuvent produire.
+Le vrai problème, c’est le contrat des fonctions.
 
-Elles promettent un `User`, mais peuvent aussi :
- 
-- ne rien trouver ;
-- refuser une donnée invalide ;
-- échouer à cause d’une règle métier ;
-- exploser à cause d’un service tiers ;
-- remonter une exception qui vient d’une autre couche.
+Une fonction peut promettre un `User`, tout en pouvant aussi refuser une donnée, ne rien trouver, rencontrer une règle métier, ou dépendre d’un service indisponible.
 
-Et tout ça n’apparaît pas dans le contrat de la fonction.
-
-Donc on découvre les cas d’échec en lisant l’implémentation, en suivant les `throw`, ou pire, en production.
+Si ces issues n’apparaissent pas dans le type de retour, elles finissent cachées dans l’implémentation, dans un `throw`, dans un message, ou dans une convention d’équipe.
 
 ## Le piège du `throw` métier
 
@@ -42,11 +34,9 @@ async function registerUser(email: string) {
 
 Ce code a l’air simple.
 
-Mais son contrat est mensonger.
+Mais sa signature ne raconte qu’une partie de l’histoire.
 
-La signature donne l’impression que la fonction retourne un utilisateur. En réalité, elle peut aussi échouer pour plusieurs raisons métier.
-
-Et ces raisons sont cachées dans le corps de la fonction.
+Elle montre le cas où l’utilisateur est créé, pas les issues qui peuvent arrêter le parcours.
 
 Le code appelant est obligé de faire un `try/catch`, puis de deviner ce qui s’est passé.
 
@@ -62,12 +52,6 @@ try {
 	});
 }
 ```
-
-À partir de là, tout commence à se mélanger.
-
-Le premier problème n’est même pas encore de savoir comment afficher l’erreur.
-
-Le premier problème, c’est de savoir qu’elle existe.
 
 ## Le premier problème : identifier les issues
 
@@ -146,12 +130,7 @@ quels sont les points de sortie possibles de cette fonction ?
 
 ## Le bon premier pas : succès ou échec explicite
 
-Avant même de parler de cas métier précis, on peut déjà rendre le retour plus honnête.
-
-Au lieu de laisser une fonction donner l’impression qu’elle ne produit qu’une seule chose, on peut retourner un résultat explicite :
-
-- soit une réussite ;
-- soit un échec.
+Avant même de parler de cas métier précis, on peut déjà rendre le retour plus honnête avec un résultat explicite.
 
 C’est le principe qu’on retrouve dans beaucoup d’implémentations de `Result`, `Either`, `Ok/Err`, `Left/Right`, etc.
 
@@ -177,11 +156,7 @@ function error<Failure>(failure: Failure): Result<never, Failure> {
 }
 ```
 
-Déjà, le contrat devient plus lisible.
-
-La fonction assume qu’elle peut produire autre chose que son résultat nominal.
-
-Le code appelant ne peut plus ignorer complètement cette possibilité.
+Déjà, la fonction assume qu’elle peut produire autre chose que son résultat nominal.
 
 Par exemple :
 
@@ -195,11 +170,7 @@ function canAccessDashboard(user: User) {
 }
 ```
 
-Pour une vérification simple, c’est largement suffisant.
-
-Le résultat attendu est binaire : autorisé ou refusé.
-
-Pas besoin d’inventer un système plus complexe quand le métier ne demande pas plus.
+Pour une vérification simple, c’est suffisant : le résultat attendu est binaire.
 
 Le problème arrive quand le processus n’a plus seulement deux sorties intéressantes.
 
@@ -217,22 +188,12 @@ function registerUser(email: string) {
 }
 ```
 
-Ici, le retour est explicite, mais le modèle reste pauvre.
-
-Il dit seulement :
+Ici, le type dit seulement :
 
 - il y a un cas de réussite ;
 - il y a un cas d’erreur.
 
-Or, dans le code, on voit déjà plusieurs situations différentes.
-
-Une entrée peut être invalide.
-
-Un compte peut déjà exister.
-
-Un utilisateur peut être créé.
-
-Ces situations ne demandent pas forcément le même traitement.
+Mais dans le code, on voit déjà trois situations : entrée invalide, compte existant, utilisateur créé.
 
 Le canal `error` devient alors un grand sac dans lequel on met tout ce qui ne ressemble pas au résultat nominal.
 
@@ -246,17 +207,11 @@ type RegisterResult = Result<
 >;
 ```
 
-À ce stade, l’échec apparaît bien dans le type.
-
-Mais le type ne dit pas encore ce que ces données signifient.
+L’échec apparaît bien dans le type, mais les données retournées restent ambiguës.
 
 Est-ce que `{ input: string }` représente un email invalide, une valeur vide, un format refusé ?
 
 Est-ce que `{ userId, email }` veut dire que le compte existe déjà, qu’il est suspendu, ou qu’une invitation est en attente ?
-
-La payload décrit une forme.
-
-Elle ne nomme pas l’issue.
 
 On pourrait évidemment ajouter un discriminant dans la payload.
 
@@ -264,33 +219,23 @@ Un `type`, un `kind`, un `code`.
 
 Et ce serait déjà une bonne intuition.
 
-Le sujet n’est donc pas de dire qu’un discriminant serait inutile.
+Le sujet n’est pas de dire qu’un discriminant serait inutile.
 
-Au contraire.
-
-Le sujet, c’est que si cette information devient nécessaire, elle ne devrait pas rester un détail dans une payload d’erreur générique.
-
-Elle devrait structurer le résultat lui-même.
+Au contraire : si cette information devient nécessaire, elle devrait structurer le résultat lui-même.
 
 Sans discriminant, le code appelant est obligé de déduire l’intention à partir du contenu retourné.
 
 Avec un discriminant, on améliore déjà les choses.
 
-Mais si ce discriminant reste enfermé dans un canal `error`, on garde encore une lecture binaire du processus.
-
-On continue à dire : il y a le résultat attendu d’un côté, et tout le reste dans l’erreur.
+Mais s’il reste enfermé dans un canal `error`, on garde encore une lecture binaire : le résultat attendu d’un côté, tout le reste dans l’erreur.
 
 C’est là que le modèle `success/error` classique commence à manquer de précision.
 
-Il structure le succès et l’échec.
-
-Mais il ne structure pas encore les issues possibles.
+Il structure le succès et l’échec, mais pas encore les issues possibles.
 
 Or, dans une application réelle, ce sont ces issues qui nous intéressent.
 
-Pas seulement le fait que quelque chose ait échoué.
-
-Le vrai saut qualitatif arrive quand le résultat porte une information stable.
+Le vrai changement arrive quand le résultat porte une information stable.
 
 Une information qui nomme l’issue.
 
@@ -302,19 +247,9 @@ Un identifiant métier.
 
 ## Nommer les issues
 
-À ce stade, le résultat est déjà dans la donnée retournée.
+À ce stade, le résultat est déjà explicite.
 
-Pas sous la forme d’un `null`.
-Pas sous la forme d’un booléen.
-Pas sous la forme d’un objet vague.
-
-Mais il manque encore une chose : le nom de l’issue.
-
-Un résultat vraiment exploitable doit dire :
-
-- quelle issue s’est produite ;
-- quelle donnée elle transporte ;
-- comment le reste du système peut la traiter.
+Mais il manque encore le plus important : le nom de l’issue.
 
 C’est là que l’approche de `@duplojs/utils` devient intéressante.
 
@@ -396,7 +331,7 @@ L’information n’est donc pas de la décoration.
 
 Elle est ce qui permet au code appelant de distinguer les issues sans inspecter un message, sans parser une payload, et sans deviner l’intention.
 
-Ce détail change beaucoup de choses.
+Ce détail a une conséquence importante.
 
 ## Traiter l’issue à la frontière finale
 
@@ -510,13 +445,7 @@ Une application serveur qui démarre avec une configuration invalide ne devrait 
 
 Si ton application a besoin d’une clé API pour parler à un service de paiement, tu ne veux pas découvrir son absence au moment où le prochain utilisateur tente de payer.
 
-Tu veux que l’application casse au bootstrap.
-
-Fort.
-
-Tout de suite.
-
-Au bon endroit.
+Tu veux que l’application échoue au bootstrap, avant d’accepter du trafic.
 
 ```ts
 import { environmentVariableOrThrow } from "@duplojs/server-utils";
@@ -612,9 +541,9 @@ L’idée est de convertir ce qui peut être contrôlé en donnée explicite, et
 
 ## Conclusion
 
-Un code ne devient pas robuste parce qu’il attrape mieux ses erreurs.
+Un code ne devient pas robuste seulement parce qu’il attrape mieux ses erreurs.
 
-Il devient robuste quand il arrête de mentir sur ce qu’il peut produire.
+Il devient robuste quand ses contrats décrivent réellement ce qu’il peut produire.
 
 Une fonction métier n’a pas toujours un seul chemin intéressant.
 
@@ -634,12 +563,4 @@ Quand elle est nommée, elle peut être typée.
 
 Quand elle est typée, elle peut être traitée au bon endroit.
 
-C’est ça, pour moi, une bonne gestion d’erreur : pas un `catch` plus malin, mais un contrat qui dit enfin la vérité.
-
----
-
-L’exemple de cet article s’appuie sur [`Either` de `@duplojs/utils`](https://utils.duplojs.dev/fr/v1/guide/either), une brique de l’écosystème [DuploJS](https://duplojs.dev).
-
-DuploJS ne se limite pas à cette approche, mais elle reflète bien une idée centrale du projet : rendre les contrats explicites, typés, et exploitables par le reste du système.
-
-Si le sujet vous intéresse, vous pouvez regarder la documentation de DuploJS et venir échanger autour du projet.
+C’est ça, pour moi, une bonne gestion d’erreur : pas un `catch` plus malin, mais un contrat plus honnête.
