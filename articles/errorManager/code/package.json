@@ -1,6 +1,6 @@
 {
     "type": "module",
     "dependencies": {
-        "@duplojs/utils": "1.9.6"
+        "@duplojs/utils": "1.9.9"
     }
 }

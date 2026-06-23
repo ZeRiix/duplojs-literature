@@ -27,7 +27,7 @@ export function registerUser(input: string) {
 	const existingUser = usersByEmail.get(email);
 
 	if (existingUser) {
-		return E.right("register.alreadyExists", {
+		return E.left("register.alreadyExists", {
 			userId: existingUser.id,
 			email,
 		});
@@ -43,46 +43,45 @@ export function registerUser(input: string) {
 	return E.right("register.created", user);
 }
 
-export function consumeRegisterIssue(input: string) {
+export function discriminateRegisterIssue(input: string) {
+	const result = registerUser(input);
+
+	if (E.hasInformation(result, "register.alreadyExists")) {
+		const conflict = E.unwrapByInformation(
+			result,
+			"register.alreadyExists",
+		);
+
+		return {
+			email: conflict.email,
+			userId: conflict.userId,
+		};
+	}
+
+	return result;
+}
+
+interface ResponseLike {
+	status(code: number): {
+		json(body: unknown): unknown;
+	};
+}
+
+export function handleRegister(input: string, response: ResponseLike) {
 	const result = registerUser(input);
 
 	return E.matchInformation(
 		result,
 		{
-			"register.emailInvalid": () => ({
-				screen: "register",
+			"register.emailInvalid": () => response.status(400).json({
 				field: "email",
-				messageKey: "register.email.invalid",
+				code: "email.invalid",
 			}),
-			"register.alreadyExists": ({ email }) => ({
-				screen: "login",
-				prefill: {
-					email,
-				},
-				messageKey: "register.account.alreadyExists",
+			"register.alreadyExists": ({ email }) => response.status(409).json({
+				email,
+				code: "account.alreadyExists",
 			}),
-			"register.created": (user) => ({
-				screen: "onboarding",
-				user,
-			}),
+			"register.created": (user) => response.status(201).json(user),
 		},
 	);
 }
-
-interface PaymentRequest {
-	amount: number;
-	cardToken: string;
-}
-
-interface PaymentAuthorization {
-	authorizationId: string;
-}
-
-export declare function requestPaymentAuthorization(
-	request: PaymentRequest,
-): Promise<
-	| E.Right<"payment.authorized", PaymentAuthorization>
-	| E.Left<"payment.cardExpired", PaymentRequest>
-	| E.Left<"payment.insufficientFunds", PaymentRequest>
-	| E.Left<"payment.providerUnavailable", { provider: "stripe" }>
->;

@@ -1,4 +1,4 @@
-# La gestion d’erreur ne devrait pas être un accident
+# Une erreur devrait être identifiable avant d’être traitée
 
 Quand on parle de gestion d’erreur, on tombe souvent dans un faux débat.
 
@@ -292,7 +292,7 @@ function registerUser(input: string) {
 	const existingUser = usersByEmail.get(email);
 
 	if (existingUser) {
-		return E.right("register.alreadyExists", {
+		return E.left("register.alreadyExists", {
 			userId: existingUser.id,
 			email,
 		});
@@ -317,250 +317,77 @@ On a trois issues métier :
 - `register.alreadyExists` : le compte existe déjà ;
 - `register.created` : le compte vient d’être créé.
 
-Dans cet exemple, `register.emailInvalid` coupe le parcours dès la validation de l’entrée.
+Le point important, c’est que les deux `Left` ne fusionnent pas dans un simple type `Error`.
 
-Les deux autres issues sont placées côté `Right` parce qu’elles représentent des résultats consommables du processus d’inscription.
+Le retour de la fonction ressemble plutôt à ça :
 
-Et `register.alreadyExists` est volontairement intéressant.
+```ts
+type RegisterIssue =
+	| E.Left<"register.emailInvalid", { input: string }>
+	| E.Left<"register.alreadyExists", { userId: string; email: string }>
+	| E.Right<"register.created", User>;
+```
 
-Ce n’est pas forcément une erreur.
+Même quand deux issues sont du même côté de l’`Either`, elles ne deviennent pas le même cas.
 
-C’est une issue que le système peut vouloir traiter comme un cas valide du parcours.
+Elles gardent chacune leur information et leur payload.
 
 L’information n’est donc pas de la décoration.
 
 Elle est ce qui permet au code appelant de distinguer les issues sans inspecter un message, sans parser une payload, et sans deviner l’intention.
 
-Ce détail a une conséquence importante.
+## Exploiter les issues
 
-## Traiter l’issue à la frontière finale
+Une fois les issues nommées, le code appelant n’a plus besoin de deviner ce qu’il reçoit.
 
-Une fois que le domaine a renvoyé un cas clair, il reste une question importante : qui a le droit de l’interpréter ?
+Il peut matcher directement sur l’information.
 
-La réponse : le consommateur final.
-
-Pas le domaine.
-
-Pas le use case.
-
-Pas une classe `Error` partagée partout.
-
-Le consommateur final, c’est l’endroit où l’issue prend un sens opérationnel.
-
-Dans une application avec une interface, c’est souvent l’interface.
-
-C’est elle qui sait :
-
-- quelle langue utiliser ;
-- quel message afficher ;
-- si l’issue doit être visible ou non ;
-- si elle doit ouvrir une modale ;
-- si elle doit proposer une connexion ;
-- si elle doit rediriger vers un autre parcours.
-
-Le domaine ne doit pas décider ça.
-
-Il doit seulement fournir une issue exploitable.
-
-Peu importe que l’issue vienne d’un `Left` ou d’un `Right`, le consommateur peut se placer au niveau de l’information et décider quoi faire de chaque cas.
+Imaginons que le point de consommation soit une route HTTP classique :
 
 ```ts
-function consumeRegisterIssue(input: string) {
-	const result = registerUser(input);
+const result = registerUser(input);
 
-	return E.matchInformation(result, {
-		"register.emailInvalid": () => ({
-			screen: "register",
+return E.matchInformation(result, {
+	"register.emailInvalid": () => {
+		return response.status(400).json({
 			field: "email",
-			messageKey: "register.email.invalid",
-		}),
-		"register.alreadyExists": ({ email }) => ({
-			screen: "login",
-			prefill: { email },
-			messageKey: "register.account.alreadyExists",
-		}),
-		"register.created": (user) => ({
-			screen: "onboarding",
-			user,
-		}),
-	});
-}
-```
-
-Là, l’interprétation a du sens.
-
-`register.emailInvalid` devient une erreur de champ.
-
-`register.alreadyExists` peut devenir une redirection vers la connexion.
-
-`register.created` peut ouvrir l’onboarding.
-
-Même use case.
-
-Trois issues.
-
-Trois décisions de consommation.
-
-Et si demain l’interface change de parcours, de langue ou de façon d’afficher l’information, le domaine ne change pas.
-
-Le point important n’est donc pas de trouver une couche magique où toutes les issues devraient être transformées.
-
-Une issue se traite là où elle peut devenir une décision concrète.
-
-Dans une interface, cette décision peut être un message, une redirection, une modale ou un champ en erreur.
-
-Dans un traitement en arrière-plan, ce peut être un retry, une mise en attente ou une alerte.
-
-Dans une API publique, ce peut être un format de réponse documenté.
-
-Mais tant qu’on n’est pas à ce niveau de décision, on a intérêt à garder l’issue exploitable.
-
-Plus on l’interprète tôt, plus on force les consommateurs suivants à réinterpréter une information déjà appauvrie.
-
-## Et les vraies exceptions ?
-
-Il ne faut pas non plus tomber dans l’excès inverse.
-
-`throw` n’est pas interdit.
-
-Il reste utile pour les erreurs inattendues :
-
-- bug de programmation ;
-- invariant cassé ;
-- environnement incohérent ;
-- librairie externe qui throw ;
-- erreur vraiment non récupérable à cet endroit.
-
-Autrement dit : des cas qui ne sont pas censés arriver.
-
-Jamais.
-
-La règle simple est la suivante : si un cas est attendu ou récupérable par un consommateur, il mérite d’être modélisé comme une issue.
-
-Si l’application est dans un état où elle ne devrait pas continuer, `throw` reste adapté.
-
-Il y a aussi un cas où `throw` est non seulement acceptable, mais souhaitable : le démarrage de l’application.
-
-Une application serveur qui démarre avec une configuration invalide ne devrait pas démarrer.
-
-Si ton application a besoin d’une clé API pour parler à un service de paiement, tu ne veux pas découvrir son absence au moment où le prochain utilisateur tente de payer.
-
-Tu veux que l’application échoue au bootstrap, avant d’accepter du trafic.
-
-```ts
-import { environmentVariableOrThrow } from "@duplojs/server-utils";
-import { DP } from "@duplojs/utils";
-
-export const envs = await environmentVariableOrThrow(
-	{
-		PAYMENT_API_KEY: DP.string(),
-		PAYMENT_API_URL: DP.string(),
+			code: "email.invalid",
+		});
 	},
-	{
-		paths: [".env", ".env.local"],
+	"register.alreadyExists": ({ email }) => {
+		return response.status(409).json({
+			email,
+			code: "account.alreadyExists",
+		});
 	},
-);
+	"register.created": (user) => {
+		return response.status(201).json(user);
+	},
+});
 ```
 
-Ici, le `throw` ne sert pas à gérer une issue métier.
+Le matching se fait sur `register.emailInvalid`, `register.alreadyExists` et `register.created`.
 
-Il sert à refuser un état dans lequel l’application n’est pas censée exister.
+Ce n’est pas le contenu de la payload qui permet de deviner le cas.
 
-Ce n’est pas "un paiement refusé".
+C’est l’information qui discrimine l’issue.
 
-Ce n’est pas "le fournisseur de paiement est temporairement indisponible".
+Et surtout, ce matching est exhaustif.
 
-C’est : "l’application est mal configurée".
+Si demain `registerUser` retourne une nouvelle issue, TypeScript remonte une erreur ici.
 
-Donc elle ne doit pas accepter de trafic.
-
-Elle ne doit pas attendre qu’un utilisateur déclenche le problème.
-
-Elle doit échouer au démarrage, pendant que la CI, le déploiement ou l’équipe d’exploitation peut encore réagir.
-
-À l’inverse, les issues métier attendues ne doivent pas être traitées comme des crashs.
-
-Un email invalide n’est pas un crash.
-Un utilisateur introuvable n’est pas forcément une exception.
-Un paiement refusé n’est pas un bug.
-
-Ce sont des cas du système.
-
-Ils doivent donc être modélisés comme des cas du système.
-
-Quand on travaille avec une dépendance externe, on peut aussi isoler cette frontière.
-
-```ts
-interface PaymentRequest {
-	amount: number;
-	cardToken: string;
-};
-
-interface PaymentAuthorization {
-	authorizationId: string;
-};
-
-declare function requestPaymentAuthorization(
-	request: PaymentRequest,
-): Promise<
-	| E.Right<"payment.authorized", PaymentAuthorization>
-	| E.Left<"payment.cardExpired", PaymentRequest>
-	| E.Left<"payment.insufficientFunds", PaymentRequest>
-	| E.Left<"payment.providerUnavailable", { provider: "stripe" }>
->;
-```
-
-On ne dit pas seulement : "le paiement peut échouer".
-
-On modélise les issues importantes :
-
-- `payment.authorized` : le paiement est autorisé ;
-- `payment.cardExpired` : la carte est expirée ;
-- `payment.insufficientFunds` : les fonds sont insuffisants ;
-- `payment.providerUnavailable` : le fournisseur n’est pas disponible.
-
-Ce ne sont pas les mêmes situations.
-
-Une carte expirée et des fonds insuffisants sont deux issues métier attendues.
-
-On ne met pas un champ `reason` dans une erreur générique pour ensuite refaire un matching à la main.
-
-L’information porte déjà le cas.
-
-L’indisponibilité du fournisseur est une issue technique, mais elle peut rester récupérable.
-
-L’application peut désactiver temporairement le paiement, proposer de réessayer plus tard, ou afficher un état de maintenance sur ce parcours précis.
-
-Elle n’a pas besoin de casser tout le reste du système pour ça.
-
-Une exception non contrôlée, elle, reste un accident.
-
-L’idée n’est pas de prétendre que plus rien ne peut mal se passer.
-
-L’idée est de convertir ce qui peut être contrôlé en donnée explicite, et de garder les exceptions pour ce qui est réellement exceptionnel.
+Le code ne peut pas oublier silencieusement un nouveau cas.
 
 ## Conclusion
 
-Un code ne devient pas robuste seulement parce qu’il attrape mieux ses erreurs.
+Le gain n’est pas seulement de remplacer `throw` par un autre outil.
 
-Il devient robuste quand ses contrats décrivent réellement ce qu’il peut produire.
+Le gain, c’est de déplacer une partie du contrôle dans le contrat de la fonction.
 
-Une fonction métier n’a pas toujours un seul chemin intéressant.
+Quand une issue est nommée dans le type, elle devient visible.
 
-Elle peut créer une donnée.
+Quand elle est visible, le code appelant peut la discriminer.
 
-Elle peut refuser une entrée.
+Et quand le modèle évolue, TypeScript peut signaler les endroits où un cas n’est plus traité.
 
-Elle peut rencontrer un état déjà existant.
-
-Elle peut dépendre d’un service temporairement indisponible.
-
-Et tous ces cas ne méritent pas forcément d’être cachés derrière le même mot : "erreur".
-
-Quand une issue est attendue, elle doit être nommée.
-
-Quand elle est nommée, elle peut être typée.
-
-Quand elle est typée, elle peut être traitée au bon endroit.
-
-C’est ça, pour moi, une bonne gestion d’erreur : pas un `catch` plus malin, mais un contrat plus honnête.
+C’est ça qui change vraiment la gestion d’erreur : on ne dépend plus seulement de la mémoire du développeur.
