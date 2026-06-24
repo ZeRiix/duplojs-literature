@@ -53,7 +53,7 @@ try {
 }
 ```
 
-## Le premier problème : identifier les issues
+## Le premier problème : identifier les succès et les erreurs
 
 Avec `throw`, une issue disparaît du contrat de la fonction.
 
@@ -217,41 +217,15 @@ On pourrait évidemment ajouter un discriminant dans la payload.
 
 Un `type`, un `kind`, un `code`.
 
-Et ce serait déjà une bonne intuition.
+Ce serait déjà une bonne intuition.
 
-Le sujet n’est pas de dire qu’un discriminant serait inutile.
+Mais si cette information est nécessaire au code appelant, elle ne devrait pas être un détail caché dans la payload.
 
-Au contraire : si cette information devient nécessaire, elle devrait structurer le résultat lui-même.
-
-Sans discriminant, le code appelant est obligé de déduire l’intention à partir du contenu retourné.
-
-Avec un discriminant, on améliore déjà les choses.
-
-Mais s’il reste enfermé dans un canal `error`, on garde encore une lecture binaire : le résultat attendu d’un côté, tout le reste dans l’erreur.
-
-C’est là que le modèle `success/error` classique commence à manquer de précision.
-
-Il structure le succès et l’échec, mais pas encore les issues possibles.
-
-Or, dans une application réelle, ce sont ces issues qui nous intéressent.
-
-Le vrai changement arrive quand le résultat porte une information stable.
-
-Une information qui nomme l’issue.
-
-Pas un message.
-Pas une stacktrace.
-Pas une classe technique.
-
-Un identifiant métier.
+Elle devrait structurer le résultat lui-même.
 
 ## Nommer les issues
 
-À ce stade, le résultat est déjà explicite.
-
-Mais il manque encore le plus important : le nom de l’issue.
-
-C’est là que l’approche de `@duplojs/utils` devient intéressante.
+Pour ça, l’approche de `@duplojs/utils` est intéressante.
 
 Pas parce qu’elle invente `Either`.
 
@@ -377,6 +351,8 @@ Et surtout, ce matching est exhaustif.
 Si demain `registerUser` retourne une nouvelle issue, TypeScript remonte une erreur ici.
 
 Le code ne peut pas oublier silencieusement un nouveau cas.
+
+![preview image](./assets/preview-error-match-information.png)
 
 ## Conclusion
 
